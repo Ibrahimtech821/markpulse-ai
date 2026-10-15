@@ -1,0 +1,32 @@
+import io
+import pandas as pd
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from pydantic import ValidationError
+
+from src.schemas.models import DatasetConfig
+from src.services.validator import validate
+
+router = APIRouter(prefix="/api", tags=["upload"])
+
+
+@router.post("/validate")
+async def validate_upload(file: UploadFile = File(...), config: str = Form(...)):
+    try:
+        cfg = DatasetConfig.model_validate_json(config)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    df = pd.read_csv(io.BytesIO(await file.read()), dtype=str)
+    df.columns = [c.strip() for c in df.columns]
+
+    missing = [c.name for c in cfg.columns if c.name not in df.columns]
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Columns not in CSV: {missing}")
+
+    clean, report = validate(df, cfg)
+    clean = clean.astype(object).where(clean.notna(), None)
+
+    return {
+        "report": report.model_dump(),
+        "clean_data": clean.to_dict("records"),
+    }
