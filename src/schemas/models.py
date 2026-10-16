@@ -25,7 +25,7 @@ class Issue(BaseModel):
 
 class DatasetConfig(BaseModel):
     max_total: float = Field(gt=0 , le=100)             # e.g. 70
-    pass_percent: float = Field(default=50, ge=0, le=100)
+    pass_percent: float = Field(default=50, ge=0)
     columns: list[ColumnConfig]
 
 
